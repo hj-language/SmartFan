@@ -10,7 +10,6 @@
 #define STR_IN 8
 
 /*
-    최종 수정: 2022-12-08 16:37
     서버는
     - switch로부터 입력 받기
     - 블루투스를 통해 스마트폰으로부터 입력 받기
@@ -24,12 +23,10 @@ static const char* UART2_DEV = "/dev/ttyAMA1";
 int isQuit = 1;
 
 /* 메시지 큐 관련 변수 */
+mqd_t mq_timer, mq_rotate, mq_strength;
 static const char* mq_timer_name = "/timer"; // 메시지 큐끼리 공유할 이름
 static const char* mq_rotate_name = "/rotate";
 static const char* mq_strength_name = "/strength";
-mode_t mq_timer;
-mode_t mq_rotate;
-mode_t mq_strength;
 struct mq_attr attr;
 char buf[BUFSIZ];
 
@@ -78,11 +75,15 @@ void main(void) {
                 mq_send(mq_timer, buf, strlen(buf), 0);
             }
             // 개발자 모드 - q가 들어오면 프로세스 종료
-            else if (mode == 'q') isQuit = 1;
+            else if (mode == 'q') {
+                isQuit = 1;
+                mq_send(mq_rotate, "999", 4, 0);
+                mq_send(mq_strength, "999", 4, 0);
+            }
         }
         delay(10);
     }
-    threadReturnValue = pthread_join(thread, NULL);
+    threadReturnValue = pthread_join(switchThread, NULL);
 }
 
 int init() {

@@ -1,11 +1,11 @@
 #include <stdio.h>
 #include <unistd.h>
+#include <mqueue.h>
 #include <wiringPi.h>
 #include <wiringPiI2C.h>
 #include <sys/ioctl.h>
 
 /*
-    최종 수정: 2022-12-08 17:13
     timer 클라이언트는
     - 서버로부터 데이터 받기
     입력 받은 값 만큼 타이머를 실행한다.
@@ -18,46 +18,47 @@ static const char* I2C_DEV = "/dev/i2c-1";
 int i2c_fd;
 
 /* 메시지 큐 관련 변수 */
-mode_t mq_timer, mq_strength;
+mqd_t mq_timer, mq_strength, mq_rotate;
 struct mq_attr attr;
 const char* mq_timer_name = "/timer";  
 const char* mq_strength_name = "/strength";
+const char* mq_rotate_name = "/rotate";
 char buf[BUFSIZ];
 int n;
 
 /* 함수 선언 */
 int init();
-int readReg(int i2c_fd, int value);
+int readReg(int, int);
+void* setTimer(void *);
+void timerInit();
 
 int main() 
 {
-    int value = 1;
-    int isInit = 0;
-    int isQuit = 0;
+    if (init() == -1) return;
 
-    while (!isQuit) {
+    int value;
+    pthread_t thread = 0;
+    int threadReturnValue;
+
+    while (1) {
         n = mq_receive(mq_timer, buf, sizeof(buf), NULL);
-
         value = atoi(buf);
 
-        if (value > 0 && isInit == 0)
-            if ((isInit = initReg()) == -1)
-                return;
+        // 기존 쓰레드 종료
+        if (thread != 0) threadReturnValue = pthread_join(thread, NULL); 
 
-        if (value > 0 && isInit == 1) {
-            if (readReg(i2c_fd, value)) {
-                printf("타이머 종료 !\n");
-                isInit = 0;
-                break;
-            }
-        }
+        if (value == 999) break;
+
+        // 타이머 초기화
+        timerInit();
+
+        // 새 쓰레드 실행
+        threadReturnValue = pthread_create(&thread, NULL, setTimer, (void *)value);
     }
-    
     return 0;
 }
 
-int init()
-{
+int init() {
     /* wiringPi setup */
     if (wiringPiSetup() < 0) {
         printf("wiringPiSetup() is failed\n");
@@ -66,10 +67,7 @@ int init()
 
     /* I2C 연결 설정 */
     i2c_fd = wiringPiI2CSetupInterface(I2C_DEV, SLAVE_ADDR_01);
-    wiringPiI2CWriteReg8(i2c_fd, 0x00, 0x00);
-    wiringPiI2CWriteReg8(i2c_fd, 0x01, 0x00);
-    wiringPiI2CWriteReg8(i2c_fd, 0x02, 0x00);
-
+    
     /* 메시지 큐 속성 초기화 */
     attr.mq_flags = 0;
     attr.mq_maxmsg = 10;
@@ -77,11 +75,17 @@ int init()
     attr.mq_curmsgs = 0;
     mq_timer = mq_open(mq_timer_name, O_CREAT | O_RDONLY, 0644, &attr);
     mq_strength = mq_open(mq_strength_name, O_WRONLY);
+    mq_rotate = mq_open(mq_rotate_name, O_WRONLY);
     return 1;
 }
 
-int readReg(int i2c_fd, int value)
-{
+void timerInit() {
+    wiringPiI2CWriteReg8(i2c_fd, 0x00, 0x00);
+    wiringPiI2CWriteReg8(i2c_fd, 0x01, 0x00);
+    wiringPiI2CWriteReg8(i2c_fd, 0x02, 0x00);
+};
+
+int readReg(int i2c_fd, int value) {
     int min = wiringPiI2CReadReg8(i2c_fd, 0x01);
     int hour = wiringPiI2CReadReg8(i2c_fd, 0x02);
 
@@ -94,4 +98,22 @@ int readReg(int i2c_fd, int value)
 
     // 안 끝났으면 0 리턴
     return 0;
+}
+
+void *setTimer(void *value) {
+    int value = (int)value;
+    int min, hour, target;
+
+    while (1) {
+        min = wiringPiI2CReadReg8(i2c_fd, 0x01);
+        hour = wiringPiI2CReadReg8(i2c_fd, 0x02);
+        target = hour * 60 + min;
+
+        // 타이머 끝났을 때
+        if (target > value) break;
+
+        delay(60000); // 1분마다 확인하도록 delay
+    }
+    mq_send(mq_rotate, "0", 2, 0);
+    mq_send(mq_strength, "0", 2, 0);
 }

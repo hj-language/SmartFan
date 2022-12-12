@@ -35,7 +35,7 @@ int mode;   // 회전 모드 저장
 int dir;    // 회전 방향 저장
 
 /* 메시지 큐 관련 변수 */
-mode_t mq_rotate;
+mqd_t mq_rotate;
 struct mq_attr attr;
 const char* mq_rotate_name = "/rotate";  
 char buf[BUFSIZ];
@@ -47,8 +47,7 @@ void Rotate_Auto();     // 자동 회전 모드
 void Rotate_Derived();  // 유도 회전 모드
 void one_two_Phase_Rotate_Angle(float angle, int dir);
 
-int main()
-{
+void main() {
 	if (init() == -1) return;
 	
     pthread_t thread = 0;     // tid 저장 변수
@@ -63,21 +62,20 @@ int main()
             threadReturnValue = pthread_join(thread, NULL); 
             if (threadReturnValue < 0) return;
             thread = 0;
-        } else if ((mode = atoi(buf[0])) == AUTO) {     // 자동 회전 모드
+        } else if (mode == AUTO) {     // 자동 회전 모드
             // 기존 쓰레드 종료
             if (thread != 0) threadReturnValue = pthread_join(thread, NULL); 
             // 새 쓰레드 실행
             threadReturnValue = pthread_create(&thread, NULL, Rotate_Auto, NULL);
             if (threadReturnValue < 0) return;
-        } else if ((mode = atoi(buf[0])) == DERIVED) {  // 객체 유도 모드
+        } else if (mode == DERIVED) {  // 객체 유도 모드
             // 기존 쓰레드 종료
             if (thread != 0) threadReturnValue = pthread_join(thread, NULL); 
             // 새 쓰레드 실행
             threadReturnValue = pthread_create(&thread, NULL, Rotate_Derived, NULL);
             if (threadReturnValue < 0) return;
-        }
-        if ((mode = atoi(buf[0])) == 999) {
-        	isQuit = 1;
+        } else if (mode == 999) {
+        	break;
         }
         memset(buf, 0, sizeof(buf));
     }
