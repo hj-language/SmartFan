@@ -8,7 +8,7 @@
 #define AUTO 1
 #define DERIVED 2
 #define CW 0
-#define CCW 
+#define CCW 1
 
 /* 
     최종 수정: 2022-12-08 17:06
@@ -42,9 +42,9 @@ char buf[BUFSIZ];
 int n;
 
 /* 함수 선언 */
-void init();
-void Rotate_Auto();     // 자동 회전 모드
-void Rotate_Derived();  // 유도 회전 모드
+int init();
+void *Rotate_Auto();     // 자동 회전 모드
+void *Rotate_Derived();  // 유도 회전 모드
 void one_two_Phase_Rotate_Angle(float angle, int dir);
 
 void main() {
@@ -133,7 +133,7 @@ int init()
 	return 0;
 }
 
-void Rotate_Auto() {
+void *Rotate_Auto() {
 	// 11.38 step이 돼야 1도.
 	float step = 0;
 	int i = 0;
@@ -169,6 +169,6 @@ void Rotate_Auto() {
 	}
 }
 
-void Rotate_Derived() {
+void *Rotate_Derived() {
 
 }

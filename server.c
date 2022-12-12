@@ -5,12 +5,12 @@
 #include <wiringPi.h>
 #include <wiringSerial.h>
 
-#define BAUD_RATE 9600
+#define BAUD_RATE 115200
 #define ROT_IN 7
 #define STR_IN 8
 
 /*
-    최종 수정: 2022-12-12 20:02
+    최종 수정: 2022-12-12 20:32
     수정 사항 : 입력 예외 처리 및 serialReadBytes 함수 구현
     서버는
     - switch로부터 입력 받기
@@ -22,7 +22,7 @@
 static const char* UART2_DEV = "/dev/ttyAMA1";
 
 /* 공유 변수 */
-int isQuit = 1;
+int isQuit = 0;
 
 /* 메시지 큐 관련 변수 */
 mqd_t mq_timer, mq_rotate, mq_strength;
@@ -41,7 +41,7 @@ int serialReadBytes(const int fd);
 void serialWrite(const int fd, const unsigned char c);
 void serialWriteBytes(const int fd, const char* s);
 // 스위치 값을 받는 함수
-void InputFromSwitch();
+void *InputFromSwitch();
 // 클라이언트에게 메시지 큐를 통해 데이터를 전송하는 함수
 void SendToClient(int value);
 int catchRangeException(char mode, int value);
@@ -169,7 +169,7 @@ void serialWriteBytes(const int fd, const char* s)
    write(fd, s, strlen(s));
 }
 
-void InputFromSwitch() {
+void *InputFromSwitch() {
     int str_mode = 0;
     int rot_mode = 0;
     int rot_val = 0;
@@ -209,15 +209,15 @@ int catchRangeException(char mode, int value)
     switch (mode)
     {
     case 'm':
-        if (value < 0 || value > 2) return 1;
+        if (value < 0 || value > 2 || value == 9) return 1;
         else return 0;
         break;
     case 's':
-        if (value < 0 || value > 3) return 1;
+        if (value < 0 || value > 3 || value == 9) return 1;
         else return 0;
         break;
     case 't':
-        if (value < 0 || value > 300) return 1;
+        if (value < 0 || value > 300 || value == 999) return 1;
         else return 0;
         break;
     default:
