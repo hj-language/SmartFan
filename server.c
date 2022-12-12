@@ -84,9 +84,9 @@ void main(void) {
             }
             // 개발자 모드 - q가 들어오면 프로세스 종료
             else if (mode == 'q') {
-                isQuit = 1;
                 mq_send(mq_rotate, "999", 4, 0);
                 mq_send(mq_strength, "999", 4, 0);
+                isQuit = 1;
             }
         }
         delay(10);

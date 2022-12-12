@@ -36,9 +36,9 @@ void main() {
     
     int strength, isQuit = 0;
 
-    while (!isQuit){
+    while (1){
         n = mq_recieve(mq_strength, buf, sizeof(buf), NULL);
-        if (atoi(buf) == 999) isQuit = 1;
+        if (atoi(buf) == 9) break;
     	motor_Rotate(atoi(buf));
     }
 }

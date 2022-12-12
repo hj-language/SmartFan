@@ -52,9 +52,8 @@ void main() {
 	
     pthread_t thread = 0;     // tid 저장 변수
     int threadReturnValue;    // 쓰레드 반환값 저장 변수
-    int isQuit = 0;               // 종료 여부 저장
     
-    while (!isQuit) {
+    while (1) {
         n = mq_receive(mq_rotate, buf, sizeof(buf), NULL);
         if ((mode = atoi(buf[0])) == FIXED) {           // 고정 모드
         	mode = FIXED;
@@ -74,7 +73,7 @@ void main() {
             // 새 쓰레드 실행
             threadReturnValue = pthread_create(&thread, NULL, Rotate_Derived, NULL);
             if (threadReturnValue < 0) return;
-        } else if (mode == 999) {
+        } else if (mode == 9) {
         	break;
         }
         memset(buf, 0, sizeof(buf));
