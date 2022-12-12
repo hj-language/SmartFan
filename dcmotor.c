@@ -9,8 +9,8 @@
 #define GPIO25 25
 #define GPIO8 8
 
-#define FREQ 1000;
-#define RANGE 100;
+#define FREQ 1000
+#define RANGE 100
 
 /*
     최종 수정: 2022-12-12 19:26
@@ -37,9 +37,9 @@ void main() {
     int strength, isQuit = 0;
 
     while (1){
-        n = mq_recieve(mq_strength, buf, sizeof(buf), NULL);
-        if (atoi(buf) == 9) break;
-    	motor_Rotate(atoi(buf));
+        n = mq_receive(mq_strength, buf, sizeof(buf), NULL);
+        if (buf[0]-'0' == 9) break;
+    	motor_Rotate(buf[0]-'0');
     }
 }
 
