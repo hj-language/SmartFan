@@ -4,6 +4,7 @@
 #include <string.h>
 #include <wiringPi.h>
 #include <wiringSerial.h>
+#include <pthread.h>
 
 #define BAUD_RATE 115200
 #define ROT_IN 7

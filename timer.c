@@ -4,6 +4,7 @@
 #include <wiringPi.h>
 #include <wiringPiI2C.h>
 #include <sys/ioctl.h>
+#include <pthread.h>
 
 /*
     timer 클라이언트는
@@ -100,8 +101,8 @@ int readReg(int i2c_fd, int value) {
     return 0;
 }
 
-void *setTimer(void *value) {
-    int value = (int)value;
+void *setTimer(void *arg) {
+    int value = (int)arg;
     int min, hour, target;
 
     while (1) {
