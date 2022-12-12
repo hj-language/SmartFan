@@ -82,6 +82,9 @@ void main() {
 	FILE* fp = fopen("stepmotor_degree.txt", "wt");
 	fprintf(fp, "%d", degree);
 	fclose(fp);
+
+	mq_close(mq_rotate);
+	mq_unlink("/rotate");
 	return 0;
 }
 

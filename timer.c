@@ -56,6 +56,11 @@ int main()
         // 새 쓰레드 실행
         threadReturnValue = pthread_create(&thread, NULL, setTimer, (void *)value);
     }
+
+    mq_close(mq_timer);
+    mq_close(mq_rotate);
+    mq_close(mq_strength);
+	mq_unlink("/timer");
     return 0;
 }
 

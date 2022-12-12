@@ -93,6 +93,11 @@ void main(void) {
         delay(10);
     }
     threadReturnValue = pthread_join(switchThread, NULL);
+
+    /* 메시지 큐 닫기 */
+    mq_close(mq_timer);
+    mq_close(mq_rotate);
+    mq_close(mq_strength);
 }
 
 int init() {

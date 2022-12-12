@@ -23,7 +23,7 @@
 /* 메시지 큐 관련 변수 */
 mqd_t mq_strength;
 struct mq_attr attr;
-const char* mq_strength_name = "/strength";  
+const char* mq_strength_name = "/strength";
 char buf[BUFSIZ];
 int n;
 
@@ -41,6 +41,9 @@ void main() {
         if (buf[0]-'0' == 9) break;
     	motor_Rotate(buf[0]-'0');
     }
+
+    mq_close(mq_strength);
+	mq_unlink("/strength");
 }
 
 int init() {
@@ -72,7 +75,6 @@ int init() {
 }
 
 void motor_Rotate(int strength) {
-	
 	switch(strength) {
 		case 0:
 			pwmWrite(PWM0, 0);
