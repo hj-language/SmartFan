@@ -55,7 +55,7 @@ void main() {
     
     while (1) {
         n = mq_receive(mq_rotate, buf, sizeof(buf), NULL);
-        if ((mode = atoi(buf[0])) == FIXED) {           // 고정 모드
+        if ((mode = buf[0] - '0') == FIXED) {           // 고정 모드
         	mode = FIXED;
             // 기존 쓰레드 종료
             threadReturnValue = pthread_join(thread, NULL); 
