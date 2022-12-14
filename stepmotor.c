@@ -58,7 +58,7 @@ void main() {
     
     while (1) {
         n = mq_receive(mq_rotate, buf, sizeof(buf), NULL);
-	printf("Received from server value %d", buf[0]-'0');
+	printf("Stepmotor: Received value %d\n", buf[0]-'0');
 	fflush(stdout);
         if ((mode = buf[0] - '0') == FIXED) {           // 고정 모드
         	mode = FIXED;
@@ -187,7 +187,65 @@ void *Rotate_Derived() {
 	float distance = 0;
 	float step = 0;
 	int initFlag = 1;
+	
 
+	while (1) {	
+		printf("bbb %f\n", GetDistance());
+		fflush(stdout);
+		if (initFlag) {
+			delay(100);
+			initFlag = 0;
+			}
+		if(GetDistance() < 100)
+		{
+			objectDistance = GetDistance();
+			break;
+		}
+		
+		if (dir == CCW) {
+			for(int j = 0; j < 4; j++){
+				digitalWrite(pin_arr[j], one_two_phase[i%8][j]);
+				delay(1);
+			}
+			step++;
+			if (step - 11.38 > 0) {
+				//error += 0.62;
+				//if(error/1 > 0)
+					
+				degree++;
+				step = 0;
+			}
+			if (degree == 150) 
+			{
+				dir = CW;
+				
+				if(findFlag) break;
+				findFlag = 1;
+			}
+		}
+		else if (dir == CW) {
+			for(int j = 0; j < 4; j++){
+				digitalWrite(pin_arr[j], one_two_phase[7-i%8][j]);
+				delay(1);
+			}
+			step++;
+			if (step - 11.38 > 0) {
+				degree--;
+				step = 0;
+			}
+			if (degree == 30) 
+			{
+				dir = CCW;
+				
+				if(findFlag) break;
+				findFlag = 1;
+			}
+		}
+		i++;
+		if(i == 8000) i = 0;
+	}
+	
+	
 	while (mode == DERIVED) {
 		if (dir == CCW) {
 			for(int j = 0; j < 4; j++){
@@ -218,21 +276,13 @@ void *Rotate_Derived() {
 		}
 
 		distance = GetDistance();
-
-        if(distance < 1000 && (initFlag == 0))
-        { 
-            objectDistance = distance;
-            initFlag = 1;
-        }
-
 		//객체  따라가기? 될지 모름
-		if((objectDistance - errorDistance > distance)
-		|| (objectDistance + errorDistance < distance)) {
+		if( objectDistance- errorDistance > distance
+		|| objectDistance + errorDistance < distance) 
 			dir = (dir - 1) * -1;
-        }
 		else {
 			objectDistance = distance;
-			printf("Distance: %f, initFlag: %d\n", objectDistance, initFlag);
+			printf("aaa %f\n", objectDistance);
 			fflush(stdout);
 		}
 

@@ -13,7 +13,6 @@
 #define RANGE 100
 
 /*
-    최종 수정: 2022-12-12 19:26
     dcmotor 클라이언트는
     - server로부터 세기(0~3) 입력 받기
     - timer로부터 종료 세기(0) 입력 받기
@@ -32,18 +31,20 @@ int init();
 void motor_Rotate(int);
 
 void main() {
+    printf("Start dcmotor\n");
     if (init() == -1) return;
     
     int strength, isQuit = 0;
-
-    while (1){
+    
+    while (1) {
         n = mq_receive(mq_strength, buf, sizeof(buf), NULL);
+        printf("Receive from server value %d\n", buf[0]-'0');
         if (buf[0]-'0' == 9) break;
     	motor_Rotate(buf[0]-'0');
     }
-
+    printf("End dcmotor\n");
     mq_close(mq_strength);
-	mq_unlink("/strength");
+    mq_unlink(mq_strength_name);
 }
 
 int init() {
@@ -72,9 +73,12 @@ int init() {
     attr.mq_msgsize = BUFSIZ;
     attr.mq_curmsgs = 0;
     mq_strength = mq_open(mq_strength_name, O_CREAT | O_RDONLY, 0644, &attr);
+    
+    return 0;
 }
 
 void motor_Rotate(int strength) {
+    printf("Strength value %d\n", strength);
 	switch(strength) {
 		case 0:
 			pwmWrite(PWM0, 0);

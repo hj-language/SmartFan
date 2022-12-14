@@ -5,6 +5,7 @@
 #include <wiringPiI2C.h>
 #include <sys/ioctl.h>
 #include <pthread.h>
+#include <stdlib.h>
 
 /*
     timer 클라이언트는
@@ -17,6 +18,9 @@
 #define SLAVE_ADDR_01 0x68 
 static const char* I2C_DEV = "/dev/i2c-1";
 int i2c_fd;
+
+/* 공유 변수 */
+int isQuit;
 
 /* 메시지 큐 관련 변수 */
 mqd_t mq_timer, mq_strength, mq_rotate;
@@ -33,7 +37,7 @@ int readReg(int, int);
 void* setTimer(void *);
 void timerInit();
 
-int main() 
+void main() 
 {
     if (init() == -1) return;
 
@@ -44,14 +48,24 @@ int main()
     while (1) {
         n = mq_receive(mq_timer, buf, sizeof(buf), NULL);
         value = atoi(buf);
+	printf("Timer: Receive from server value %d, %s\n", value, buf);
 
+        if (value == 999) {
+        	isQuit = 1;
+		// 기존 쓰레드 종료
+		if (thread != 0) threadReturnValue = pthread_join(thread, NULL); 
+        	break;
+	}
+	
         // 기존 쓰레드 종료
-        if (thread != 0) threadReturnValue = pthread_join(thread, NULL); 
-
-        if (value == 999) break;
+        if (thread != 0) {
+        	isQuit = 1;
+        	threadReturnValue = pthread_join(thread, NULL);
+        } 
 
         // 타이머 초기화
         timerInit();
+    	isQuit = 0;
 
         // 새 쓰레드 실행
         threadReturnValue = pthread_create(&thread, NULL, setTimer, (void *)value);
@@ -60,8 +74,7 @@ int main()
     mq_close(mq_timer);
     mq_close(mq_rotate);
     mq_close(mq_strength);
-	mq_unlink("/timer");
-    return 0;
+    mq_unlink("/timer");
 }
 
 int init() {
@@ -109,17 +122,21 @@ int readReg(int i2c_fd, int value) {
 void *setTimer(void *arg) {
     int value = (int)arg;
     int min, hour, target;
-
-    while (1) {
+    printf("Timer: Set time %d\n", value);
+    while (!isQuit) {
         min = wiringPiI2CReadReg8(i2c_fd, 0x01);
         hour = wiringPiI2CReadReg8(i2c_fd, 0x02);
         target = hour * 60 + min;
+        printf("Timer: target: %d, value: %d\n", target, value);
 
         // 타이머 끝났을 때
-        if (target > value) break;
-
-        delay(60000); // 1분마다 확인하도록 delay
+        if (target >= value) {
+        	printf("Timer: Send to rotate value 0\n");
+    		mq_send(mq_rotate, "0", 2, 0);
+    		printf("Timer: Send to strength value 0\n");
+    		mq_send(mq_strength, "0", 2, 0);
+        	break;
+        }
+        delay(5000); // 5초마다 확인
     }
-    mq_send(mq_rotate, "0", 2, 0);
-    mq_send(mq_strength, "0", 2, 0);
 }

@@ -5,14 +5,13 @@
 #include <wiringPi.h>
 #include <wiringSerial.h>
 #include <pthread.h>
+#include <stdlib.h>
 
 #define BAUD_RATE 115200
 #define ROT_IN 7
 #define STR_IN 8
 
 /*
-    최종 수정: 2022-12-12 20:32
-    수정 사항 : 입력 예외 처리 및 serialReadBytes 함수 구현
     서버는
     - switch로부터 입력 받기
     - 블루투스를 통해 스마트폰으로부터 입력 받기
@@ -37,6 +36,7 @@ char buf[BUFSIZ];
 int fd_serial;
 
 /* 함수 선언 */
+int init();
 unsigned char serialRead(const int fd);
 int serialReadBytes(const int fd);
 void serialWrite(const int fd, const unsigned char c);
@@ -68,6 +68,7 @@ void main(void) {
                 if (catchRangeException(mode, readValue)) continue;
                 sprintf(buf, "%d", readValue);
                 mq_send(mq_rotate, buf, strlen(buf), 0);
+                printf("Server: Send to rotate value %d\n", readValue);
             }
             else if (mode == 's' && serialDataAvail(fd_serial)) {
                 // strength 인자 경우의 수 : 0 ~ 3 (1 Byte)
@@ -75,20 +76,27 @@ void main(void) {
                 if (catchRangeException(mode, readValue)) continue;
                 sprintf(buf, "%d", readValue);
                 mq_send(mq_strength, buf, strlen(buf), 0);
+                printf("Server: Send to strength value %d\n", readValue);
             }
             else if (mode == 't' && serialDataAvail(fd_serial)) {
                 // time 인자 경우의 수 : 0 ~ 300 (1 ~ 3 Bytes)
                 readValue = serialReadBytes(fd_serial);
                 if (catchRangeException(mode, readValue)) continue;
-                sprintf(buf, "%d", readValues);
+                sprintf(buf, "%d", readValue);
                 mq_send(mq_timer, buf, strlen(buf), 0);
+                printf("Server: Send to timer value %d\n", readValue);
             }
             // 개발자 모드 - q가 들어오면 프로세스 종료
             else if (mode == 'q') {
-                mq_send(mq_rotate, "999", 4, 0);
-                mq_send(mq_strength, "999", 4, 0);
+                mq_send(mq_rotate, "9", 2, 0);
+                printf("Server: Send to rotate value 9\n");
+                mq_send(mq_strength, "9", 2, 0);
+                printf("Server: Send to strength value 9\n");
+                mq_send(mq_timer, "999", 4, 0);
+                printf("Server: Send to timer value 999\n");
                 isQuit = 1;
             }
+            memset(buf, 0, sizeof(buf));
         }
         delay(10);
     }
@@ -162,7 +170,7 @@ int serialReadBytes(const int fd)
         exp *= 10;
     }
 
-    return value;
+    return atoi(bytes);
 }
 
 void serialWrite(const int fd, const unsigned char c)
