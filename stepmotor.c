@@ -13,7 +13,6 @@
 #define ECHO 12
 
 /* 
-    최종 수정: 2022-12-08 17:06
     rotate 클라이언트는
     - server로부터 모드 입력 받기
     모드에 따라 쓰레드를 생성 및 종료하는 과정을 반복한다.
@@ -35,6 +34,8 @@ int one_two_phase[8][4] = {
 int degree; // 현재 각도 저장
 int mode;   // 회전 모드 저장 
 int dir;    // 회전 방향 저장
+int currentDistance;	// 현재 거리 저장
+int isQuit;	// 종료 여부 저장
 
 /* 메시지 큐 관련 변수 */
 mqd_t mq_rotate;
@@ -48,7 +49,7 @@ int init();
 void *Rotate_Auto();     // 자동 회전 모드
 void *Rotate_Derived();  // 유도 회전 모드
 void one_two_Phase_Rotate_Angle(float angle, int dir);
-float GetDistance();
+void *GetDistance();
 
 void main() {
 	if (init() == -1) return;
@@ -56,10 +57,10 @@ void main() {
     pthread_t thread = 0;     // tid 저장 변수
     int threadReturnValue;    // 쓰레드 반환값 저장 변수
     
-    while (1) {
+    while (!isQuit) {
         n = mq_receive(mq_rotate, buf, sizeof(buf), NULL);
-	printf("Stepmotor: Received value %d\n", buf[0]-'0');
-	fflush(stdout);
+		printf("Stepmotor: Received value %d\n", buf[0]-'0');
+		fflush(stdout);
         if ((mode = buf[0] - '0') == FIXED) {           // 고정 모드
         	mode = FIXED;
             // 기존 쓰레드 종료
@@ -79,7 +80,8 @@ void main() {
             threadReturnValue = pthread_create(&thread, NULL, Rotate_Derived, NULL);
             if (threadReturnValue < 0) return;
         } else if (mode == 9) {
-        	break;
+			isQuit = 1;
+			if (thread != 0) threadReturnValue = pthread_join(thread, NULL); 
         }
         memset(buf, 0, sizeof(buf));
     }
@@ -113,8 +115,7 @@ void one_two_Phase_Rotate_Angle(float angle, int dir) {
 	}
 }
 
-int init()
-{
+int init() {
 	/* wiringPi setup */
     if (wiringPiSetupGpio() < 0) {
         printf("Unable to setup wiringPi.\n");
@@ -150,7 +151,7 @@ void *Rotate_Auto() {
 	int i = 0;
 	while (mode == AUTO) {
 		if (dir == CCW) {
-			for(int j = 0; j < 4; j++){
+			for(int j = 0; j < 4; j++) {
 				digitalWrite(pin_arr[j], one_two_phase[i%8][j]);
 				delay(1);
 			}
@@ -162,7 +163,7 @@ void *Rotate_Auto() {
 			if (degree == 150) dir = CW;
 		}
 		else if (dir == CW) {
-			for(int j = 0; j < 4; j++){
+			for(int j = 0; j < 4; j++) {
 				digitalWrite(pin_arr[j], one_two_phase[7-i%8][j]);
 				delay(1);
 			}
@@ -174,36 +175,38 @@ void *Rotate_Auto() {
 			if (degree == 30) dir = CCW;
 		}
 		i++;
-		if(i == 8000) i = 0;
+		if(i == 8000) i = 0;	// overflow 방지
 	}
 }
 
 void *Rotate_Derived() {
-	int findFlag = 0;
+	int findFlag = 0, initFlag = 1;
 	int objectCount = 0;
-	float objectDistance = 100000000;
-	int i = 0;
-	float errorDistance = 300;
-	float distance = 0;
-	float step = 0;
-	int initFlag = 1;
-	
+	float objectDistance = 100000000, errorDistance = 300, distance = 0;
+	int i = 0, step = 0;
 
-	while (1) {	
-		printf("bbb %f\n", GetDistance());
+	pthread_t thread = 0;     // tid 저장 변수
+    int threadReturnValue;    // 쓰레드 반환값 저장 변수
+
+	threadReturnValue = pthread_create(&thread, NULL, GetDistance, NULL);
+	if (threadReturnValue < 0) return;
+	
+	while (!isQuit) {	
+		printf("bbb %f\n", currentDistance);
 		fflush(stdout);
+		
 		if (initFlag) {
 			delay(100);
 			initFlag = 0;
-			}
-		if(GetDistance() < 100)
-		{
-			objectDistance = GetDistance();
+		}
+		
+		if (currentDistance < 100) {
+			objectDistance = currentDistance;
 			break;
 		}
 		
 		if (dir == CCW) {
-			for(int j = 0; j < 4; j++){
+			for(int j = 0; j < 4; j++) {
 				digitalWrite(pin_arr[j], one_two_phase[i%8][j]);
 				delay(1);
 			}
@@ -215,16 +218,15 @@ void *Rotate_Derived() {
 				degree++;
 				step = 0;
 			}
-			if (degree == 150) 
-			{
+			if (degree == 150) {
 				dir = CW;
 				
-				if(findFlag) break;
+				if (findFlag) break;
 				findFlag = 1;
 			}
 		}
 		else if (dir == CW) {
-			for(int j = 0; j < 4; j++){
+			for(int j = 0; j < 4; j++) {
 				digitalWrite(pin_arr[j], one_two_phase[7-i%8][j]);
 				delay(1);
 			}
@@ -233,11 +235,10 @@ void *Rotate_Derived() {
 				degree--;
 				step = 0;
 			}
-			if (degree == 30) 
-			{
+			if (degree == 30) {
 				dir = CCW;
 				
-				if(findFlag) break;
+				if (findFlag) break;
 				findFlag = 1;
 			}
 		}
@@ -246,9 +247,9 @@ void *Rotate_Derived() {
 	}
 	
 	
-	while (mode == DERIVED) {
+	while (mode == DERIVED && !isQuit) {
 		if (dir == CCW) {
-			for(int j = 0; j < 4; j++){
+			for (int j = 0; j < 4; j++) {
 				digitalWrite(pin_arr[j], one_two_phase[i%8][j]);
 				delay(1);
 			}
@@ -263,7 +264,7 @@ void *Rotate_Derived() {
 			if (degree == 150) dir = CW;
 		}
 		else if (dir == CW) {
-			for(int j = 0; j < 4; j++){
+			for (int j = 0; j < 4; j++) {
 				digitalWrite(pin_arr[j], one_two_phase[7-i%8][j]);
 				delay(1);
 			}
@@ -275,10 +276,10 @@ void *Rotate_Derived() {
 			if (degree == 30) dir = CCW;
 		}
 
-		distance = GetDistance();
+		distance = currentDistance;
 		//객체  따라가기? 될지 모름
-		if( objectDistance- errorDistance > distance
-		|| objectDistance + errorDistance < distance) 
+		if (objectDistance - errorDistance > distance
+			|| objectDistance + errorDistance < distance) 
 			dir = (dir - 1) * -1;
 		else {
 			objectDistance = distance;
@@ -289,25 +290,26 @@ void *Rotate_Derived() {
 		if(++i == 8000) i = 0;
 	}
 
+	threadReturnValue = pthread_join(thread, NULL); 
 }
 
-float GetDistance()
+void *GetDistance()
 {
     int start, end;
 	float distance;
-    
-	digitalWrite(TRIG, 0);
-	//delay(1);
+
+	while (!isQuit) {
+		digitalWrite(TRIG, 0);
+		delay(60);
 		
-	digitalWrite(TRIG, 1);
-	delayMicroseconds(10);
-	digitalWrite(TRIG, 0);
+		digitalWrite(TRIG, 1);
+		delayMicroseconds(10);
+		digitalWrite(TRIG, 0);
 
-	while (digitalRead(ECHO) == 0)
-		start = micros();
-	while (digitalRead(ECHO) == 1)
-		end = micros();
-	distance = (float)(end - start) / 29. / 2. * 10.;
-
-	return distance;
+		while (digitalRead(ECHO) == 0)
+			start = micros();
+		while (digitalRead(ECHO) == 1)
+			end = micros();
+		currentDistance = (float)(end - start) / 29. / 2. * 10.;
+	}
 }
