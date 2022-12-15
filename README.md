@@ -5,12 +5,31 @@
 - 20200252 김원렬, 20200370 김혜진, 20200573 서준혁
 
 ### 목차
+[0.실행방법](#실행-방법) <br/>
 [1.기능](#기능) <br/> 
 [2.모듈](#모듈) <br/>
 [3.전체 시스템 구조](#전체-시스템-구조) <br/>
 [4.역할 분담](#역할-분담) <br/>
 [5.개발 일정](#개발-일정) <br/>
 [6.데모 영상](#데모-영상)
+
+<br/>
+
+## 실행 방법
+- 컴파일
+```bash
+$ gcc stepmotor.c -o stepmotor -lwiringPi -lpthread -lrt
+$ gcc dcmotor.c -o dcmotor -lwiringPi -lrt
+$ gcc timer.c -o timer -lwiringPi -lpthread -lrt
+$ gcc server.c -o server -lwiringPi -lpthread -lrt
+```
+- 실행
+```bash
+$ ./stepmotor &
+$ sudo ./dcmotor &
+$ ./timer &
+$ sudo ./server
+```
 
 <br/>
 
@@ -49,7 +68,10 @@
 <br/>
 
 ## 전체 시스템 구조
-- 추후 회로도 그림, 실물 회로 이미지 업로드 예정
+- 하드웨어 구조
+  - 추후 회로도 그림, 실물 회로 이미지 업로드 예정
+- 프로그램 구조
+  - 어쩌공
 
 <br/>
 
