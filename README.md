@@ -71,8 +71,8 @@ $ sudo ./server
 <br/>
 
 ## 전체 시스템 구조
-- 하드웨어 구조
-  - 추후 회로도 그림, 실물 회로 이미지 업로드 예정
+- 하드웨어 구조 <br/>
+  <img src="https://github.com/hj-language/SmartFan/blob/main/%ED%9A%8C%EB%A1%9C%EB%8F%84.png" alt="회로도" style="width:50%;" />
 - 프로그램 구조
   - server 프로세스
     - 메인 쓰레드: 스마트폰에서 블루투스를 통해 전달되는 값을 읽어 해당하는 클라이언트 프로세스에게 메시지 전송
@@ -124,5 +124,5 @@ $ sudo ./server
 <br/>
 
 ## 데모 영상
-[![데모 영상](https://img.youtube.com/vi/-LbV7Xpw9Mo/0.jpg)](https://www.youtube.com/watch?v=-LbV7Xpw9Mo)
+[![데모 영상](https://img.youtube.com/vi/-LbV7Xpw9Mo/0.jpg)](https://www.youtube.com/watch?v=-LbV7Xpw9Mo) <br/>
 (클릭하면 유튜브 영상으로 이동)
