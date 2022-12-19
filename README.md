@@ -123,4 +123,5 @@ $ sudo ./server
 <br/>
 
 ## 데모 영상
-- 추후 유튜브 링크 삽입 예정
+[![데모 영상](https://img.youtube.com/vi/-LbV7Xpw9Mo/0.jpg)](https://www.youtube.com/watch?v=-LbV7Xpw9Mo)
+(클릭하면 유튜브 영상으로 이동)
