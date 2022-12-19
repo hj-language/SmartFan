@@ -23,7 +23,11 @@
 static const char* UART2_DEV = "/dev/ttyAMA1";
 
 /* 공유 변수 */
+pthread_mutex_t mutex_strength = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t mutex_rotate = PTHREAD_MUTEX_INITIALIZER;
 int isQuit = 0;
+int strength = 0;
+int rotate = 0;
 
 /* 메시지 큐 관련 변수 */
 mqd_t mq_timer, mq_rotate, mq_strength;
@@ -67,17 +71,21 @@ void main(void) {
                 // mode 인자 경우의 수 : 0 ~ 2 (1 Byte)
                 readValue = serialRead(fd_serial) - '0';
                 if (catchRangeException(mode, readValue)) continue;
+                pthread_mutex_lock(&mutex_rotate);
+                rotate = readValue;
+                pthread_mutex_unlock(&mutex_rotate);
                 sprintf(buf, "%d", readValue);
                 mq_send(mq_rotate, buf, strlen(buf), 0);
-                printf("Server: Send to rotate value %d\n", readValue);
             }
             else if (mode == 's' && serialDataAvail(fd_serial)) {
                 // strength 인자 경우의 수 : 0 ~ 3 (1 Byte)
                 readValue = serialRead(fd_serial) - '0';
                 if (catchRangeException(mode, readValue)) continue;
+                pthread_mutex_lock(&mutex_strength);
+                strength = readValue;
+                pthread_mutex_unlock(&mutex_strength);
                 sprintf(buf, "%d", readValue);
                 mq_send(mq_strength, buf, strlen(buf), 0);
-                printf("Server: Send to strength value %d\n", readValue);
             }
             else if (mode == 't' && serialDataAvail(fd_serial)) {
                 // time 인자 경우의 수 : 0 ~ 300 (1 ~ 3 Bytes)
@@ -85,16 +93,12 @@ void main(void) {
                 if (catchRangeException(mode, readValue)) continue;
                 sprintf(buf, "%d", readValue);
                 mq_send(mq_timer, buf, strlen(buf), 0);
-                printf("Server: Send to timer value %d\n", readValue);
             }
             // 개발자 모드 - q가 들어오면 프로세스 종료
             else if (mode == 'q') {
                 mq_send(mq_rotate, "9", 2, 0);
-                printf("Server: Send to rotate value 9\n");
                 mq_send(mq_strength, "9", 2, 0);
-                printf("Server: Send to strength value 9\n");
                 mq_send(mq_timer, "999", 4, 0);
-                printf("Server: Send to timer value 999\n");
                 isQuit = 1;
             }
             memset(buf, 0, sizeof(buf));
@@ -102,7 +106,8 @@ void main(void) {
         delay(10);
     }
     threadReturnValue = pthread_join(switchThread, NULL);
-
+    pthread_mutex_destroy(&mutex_strength);
+    pthread_mutex_destroy(&mutex_rotate);
     /* 메시지 큐 닫기 */
     mq_close(mq_timer);
     mq_close(mq_rotate);
@@ -134,59 +139,38 @@ int init() {
     return 1;
 }
 
-unsigned char serialRead(const int fd)
-{
-   unsigned char x;
+unsigned char serialRead(const int fd) {
+    unsigned char x;
 
-   if (read(fd, &x, 1) != 1)
-   {
-      return -1;
-   }
+    if (read(fd, &x, 1) != 1)
+        return -1;
       
-   return x;
+    return x;
 }
 
-int serialReadBytes(const int fd)
-{
+int serialReadBytes(const int fd) {
     unsigned char bytes[3];
 
     for (int i = 0; i < 3; i++)
-    {
         bytes[i] = -1;
-    }
 
     int size = 0;
 
     while (serialDataAvail(fd))
-    {
         bytes[size++] = serialRead(fd);
-    }
-
-    int value = 0;
-    int exp = 1;
-
-    for (int i = size - 1; i >= 0; i--)
-    {
-        value += (bytes[i] - '0')  * exp;
-        exp *= 10;
-    }
 
     return atoi(bytes);
 }
 
-void serialWrite(const int fd, const unsigned char c)
-{
+void serialWrite(const int fd, const unsigned char c) {
    write(fd, &c, 1);
 }
 
-void serialWriteBytes(const int fd, const char* s)
-{
+void serialWriteBytes(const int fd, const char* s) {
    write(fd, s, strlen(s));
 }
 
 void *InputFromSwitch() {
-    int str_mode = 0;
-    int rot_mode = 0;
     int rot_val = 0;
     int str_val = 0;
     int str_flag = 0;
@@ -198,44 +182,46 @@ void *InputFromSwitch() {
     	if(str_val == LOW && str_flag == 0) str_flag = 1;
 	
     	if (str_flag == 1) {
-    		str_mode = (str_mode + 1) % 4;
-            sprintf(buf, "%d", str_mode);
+            pthread_mutex_lock(&mutex_strength);
+            strength = (strength + 1) % 4;
+            pthread_mutex_unlock(&mutex_strength);
+            sprintf(buf, "%d", strength);
             mq_send(mq_strength, buf, strlen(buf), 0);
             str_flag = 0;
-            delay(200);
+            delay(400);
     	}
     	
     	rot_val = digitalRead(ROT_IN);
         if (rot_flag == 0 && rot_val == LOW) rot_flag = 1;
     	
     	if (rot_flag == 1) {
-    	    rot_mode = (rot_mode + 1) % 3;
-    	    sprintf(buf, "%d", rot_mode);
+            pthread_mutex_lock(&mutex_rotate);
+            rotate = (rotate + 1) % 3;
+            pthread_mutex_unlock(&mutex_rotate);
+    	    sprintf(buf, "%d", rotate);
             mq_send(mq_rotate, buf, strlen(buf), 0);
             rot_flag = 0;
-            delay(200);
+            delay(400);
     	}
     }
 }
 
-int catchRangeException(char mode, int value)
-{
+int catchRangeException(char mode, int value) {
     // 1 (예외) 또는 0 (정상) 리턴
-    switch (mode)
-    {
-    case 'm':
-        if (value < 0 || value > 2 || value == 9) return 1;
-        else return 0;
-        break;
-    case 's':
-        if (value < 0 || value > 3 || value == 9) return 1;
-        else return 0;
-        break;
-    case 't':
-        if (value < 0 || value > 300 || value == 999) return 1;
-        else return 0;
-        break;
-    default:
-        return 1;
+    switch (mode) {
+        case 'm':
+            if (value < 0 || value > 2 || value == 9) return 1;
+            else return 0;
+            break;
+        case 's':
+            if (value < 0 || value > 3 || value == 9) return 1;
+            else return 0;
+            break;
+        case 't':
+            if (value < 0 || value > 300 || value == 999) return 1;
+            else return 0;
+            break;
+        default:
+            return 1;
     }
 }
