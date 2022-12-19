@@ -6,6 +6,7 @@
 #include <wiringSerial.h>
 #include <pthread.h>
 #include <stdlib.h>
+#include <errno.h>
 
 #define BAUD_RATE 115200
 #define ROT_IN 7
@@ -129,7 +130,7 @@ int init() {
     mq_timer = mq_open(mq_timer_name, O_WRONLY);
     mq_rotate = mq_open(mq_rotate_name, O_WRONLY);
     mq_strength = mq_open(mq_strength_name, O_WRONLY);
-
+    printf("ERROR NO:%d\n", errno);
     return 1;
 }
 
