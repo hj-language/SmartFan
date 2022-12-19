@@ -31,7 +31,6 @@ int init();
 void motor_Rotate(int);
 
 void main() {
-    printf("Start dcmotor\n");
     if (init() == -1) return;
     
     int strength, isQuit = 0;
@@ -42,7 +41,7 @@ void main() {
         if (buf[0]-'0' == 9) break;
     	motor_Rotate(buf[0]-'0');
     }
-    printf("End dcmotor\n");
+    motor_Rotate(0);                // 마지막에 세기 0 주고 종료
     mq_close(mq_strength);
     mq_unlink(mq_strength_name);
 }
