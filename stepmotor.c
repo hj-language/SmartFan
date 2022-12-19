@@ -34,7 +34,7 @@ int one_two_phase[8][4] = {
 int degree; // 현재 각도 저장
 int mode;   // 회전 모드 저장 
 int dir;    // 회전 방향 저장
-int currentDistance;	// 현재 거리 저장
+float currentDistance;	// 현재 거리 저장
 int isQuit;	// 종료 여부 저장
 
 /* 메시지 큐 관련 변수 */
@@ -64,21 +64,26 @@ void main() {
         if ((mode = buf[0] - '0') == FIXED) {           // 고정 모드
         	mode = FIXED;
             // 기존 쓰레드 종료
+	    isQuit = 1;
             threadReturnValue = pthread_join(thread, NULL); 
             if (threadReturnValue < 0) return;
-            thread = 0;
+	    isQuit = 0;
         } else if (mode == AUTO) {     // 자동 회전 모드
             // 기존 쓰레드 종료
+	    isQuit = 1;
             if (thread != 0) threadReturnValue = pthread_join(thread, NULL); 
             // 새 쓰레드 실행
             threadReturnValue = pthread_create(&thread, NULL, Rotate_Auto, NULL);
             if (threadReturnValue < 0) return;
+	    isQuit = 0;
         } else if (mode == DERIVED) {  // 객체 유도 모드
             // 기존 쓰레드 종료
+	    isQuit = 1;
             if (thread != 0) threadReturnValue = pthread_join(thread, NULL); 
             // 새 쓰레드 실행
             threadReturnValue = pthread_create(&thread, NULL, Rotate_Derived, NULL);
             if (threadReturnValue < 0) return;
+	    isQuit = 0;
         } else if (mode == 9) {
 			isQuit = 1;
 			if (thread != 0) threadReturnValue = pthread_join(thread, NULL); 
@@ -160,7 +165,7 @@ void *Rotate_Auto() {
 				degree++;
 				step = 0;
 			}
-			if (degree == 150) dir = CW;
+			if (degree == 120) dir = CW;
 		}
 		else if (dir == CW) {
 			for(int j = 0; j < 4; j++) {
@@ -172,7 +177,7 @@ void *Rotate_Auto() {
 				degree--;
 				step = 0;
 			}
-			if (degree == 30) dir = CCW;
+			if (degree == 60) dir = CCW;
 		}
 		i++;
 		if(i == 8000) i = 0;	// overflow 방지
@@ -182,27 +187,45 @@ void *Rotate_Auto() {
 void *Rotate_Derived() {
 	int findFlag = 0, initFlag = 1;
 	int objectCount = 0;
-	float objectDistance = 100000000, errorDistance = 300, distance = 0;
-	int i = 0, step = 0;
-
+	int sum = 0;
+	float objectDistance = 100000000, errorDistance = 200, distance = 0, preDistance = 0;
+	int i = 0, step = 0, j = 0;
+	float distanceQueue[5];
+	
+	
 	pthread_t thread = 0;     // tid 저장 변수
     int threadReturnValue;    // 쓰레드 반환값 저장 변수
+    
+    printf("Rotate_Derived Start\n");
 
 	threadReturnValue = pthread_create(&thread, NULL, GetDistance, NULL);
-	if (threadReturnValue < 0) return;
+	if (threadReturnValue < 0) return NULL;
 	
+	/*
 	while (!isQuit) {	
-		printf("bbb %f\n", currentDistance);
+		printf("Finding Distance %f\n", preDistance);
 		fflush(stdout);
-		
-		if (initFlag) {
-			delay(100);
-			initFlag = 0;
+		if(initFlag)
+		{
+			for(int i = 0; i< 5;i++)
+				sum += distanceQueue[i];
+			if(sum / 5 - 30 < currentDistance || currentDistance < sum / 5 + 30) {}
+			else currentDistance = preDistance;
+				
 		}
 		
-		if (currentDistance < 100) {
+		if (objectDistance > currentDistance) {
+			if(currentDistance < 50) continue;
+			
 			objectDistance = currentDistance;
-			break;
+		}
+		
+		if(preDistance != currentDistance)
+		{
+			preDistance = currentDistance;
+			distanceQueue[j] = preDistance;
+			j = (j+1) % 5;
+			initFlag = 1;
 		}
 		
 		if (dir == CCW) {
@@ -242,12 +265,21 @@ void *Rotate_Derived() {
 				findFlag = 1;
 			}
 		}
-		i++;
-		if(i == 8000) i = 0;
+		if(++i == 8000) i = 0;
 	}
-	
-	
+
+	printf("Min distnace: %f\n", objectDistance);
+	fflush(stdout);
+	*/
 	while (mode == DERIVED && !isQuit) {
+		//distance = currentDistance;
+		if(errorDistance < currentDistance && currentDistance < 1000)
+		{
+			//objectDistance = currentDistance;
+			continue;
+		}
+		
+
 		if (dir == CCW) {
 			for (int j = 0; j < 4; j++) {
 				digitalWrite(pin_arr[j], one_two_phase[i%8][j]);
@@ -255,13 +287,10 @@ void *Rotate_Derived() {
 			}
 			step++;
 			if (step - 11.38 > 0) {
-				//error += 0.62;
-				//if(error/1 > 0)
-					
 				degree++;
 				step = 0;
 			}
-			if (degree == 150) dir = CW;
+			if (degree == 120) dir = CW;
 		}
 		else if (dir == CW) {
 			for (int j = 0; j < 4; j++) {
@@ -273,34 +302,25 @@ void *Rotate_Derived() {
 				degree--;
 				step = 0;
 			}
-			if (degree == 30) dir = CCW;
-		}
-
-		distance = currentDistance;
-		//객체  따라가기? 될지 모름
-		if (objectDistance - errorDistance > distance
-			|| objectDistance + errorDistance < distance) 
-			dir = (dir - 1) * -1;
-		else {
-			objectDistance = distance;
-			printf("aaa %f\n", objectDistance);
-			fflush(stdout);
+			if (degree == 60) dir = CCW;
 		}
 
 		if(++i == 8000) i = 0;
 	}
 
-	threadReturnValue = pthread_join(thread, NULL); 
+	threadReturnValue = pthread_join(thread, NULL);
+	printf("Rotate_Derived End\n");
 }
 
 void *GetDistance()
 {
     int start, end;
-	float distance;
-
+    float distance;
+    int initFlag;
+    printf("GetDistance Start\n");
 	while (!isQuit) {
 		digitalWrite(TRIG, 0);
-		delay(60);
+		delay(200);
 		
 		digitalWrite(TRIG, 1);
 		delayMicroseconds(10);
@@ -312,4 +332,6 @@ void *GetDistance()
 			end = micros();
 		currentDistance = (float)(end - start) / 29. / 2. * 10.;
 	}
+	printf("GetDistance End\n");
+	fflush(stdout);
 }
